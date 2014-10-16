@@ -14,29 +14,23 @@ import (
 )
 
 type Data struct {
-	cond    *sync.Cond
+	mutex   sync.Mutex
 	content string
 	changed bool
 }
 
-func (dat *Data) init() {
-	mutex := new(sync.Mutex)
-	dat.cond = sync.NewCond(mutex)
-	dat.changed = false
-}
 
 func (dat *Data) change(newContent string) {
-	dat.cond.L.Lock()
-	defer dat.cond.L.Unlock()
+	dat.mutex.Lock()
+	defer dat.mutex.Unlock()
 	dat.content = newContent
 	dat.changed = true
-	dat.cond.Signal()
 }
 
 func (dat *Data) save() {
 	/* ここでロックしないと、期待の動作をしないことが確認できる */
-	dat.cond.L.Lock()
-	defer dat.cond.L.Unlock()
+	dat.mutex.Lock()
+	defer dat.mutex.Unlock()
 	if dat.changed {
 		time.Sleep(1 * time.Second) /* バグを再現させるため */
 		fmt.Printf("save: %s\n", dat.content)
@@ -87,7 +81,6 @@ func main() {
 	fmt.Println("hello")
 
 	var dat Data
-	dat.init()
 	cf := make(chan int, 2)
 	go NewServerThread(&dat, "serevr", 3141592).Start(cf)
 	go NewChangerThread(&dat, "changer", 6535897).Start(cf)
